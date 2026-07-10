@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { Linking, Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { getApiKey, setApiKey } from "../src/services/apiKey";
+import { clearApiKey, hasCustomApiKey, setApiKey } from "../src/services/apiKey";
 
 export default function ApiKeyScreen() {
   const router = useRouter();
   const [key, setKey] = useState("");
-  const [hasSavedKey, setHasSavedKey] = useState(false);
+  const [hasCustom, setHasCustom] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getApiKey().then((saved) => setHasSavedKey(Boolean(saved)));
+    hasCustomApiKey().then(setHasCustom);
   }, []);
 
   async function handleSave() {
@@ -22,6 +22,11 @@ export default function ApiKeyScreen() {
     router.back();
   }
 
+  async function handleUseDefault() {
+    await clearApiKey();
+    router.back();
+  }
+
   return (
     <View className="flex-1 bg-white px-6 pt-6 gap-5">
       <View>
@@ -29,9 +34,9 @@ export default function ApiKeyScreen() {
           Chave da API do Gemini
         </Text>
         <Text className="text-sm text-gray-500 leading-5">
-          O qViagem usa a IA do Google Gemini para gerar seus roteiros. Crie
-          uma chave gratuita no Google AI Studio e cole abaixo — ela fica
-          guardada com segurança só no seu aparelho.
+          {hasCustom
+            ? "Você está usando sua própria chave, salva neste aparelho."
+            : "O app já vem com uma chave padrão configurada — você não precisa fazer nada. Use o campo abaixo só se quiser usar sua própria chave em vez da padrão."}
         </Text>
       </View>
 
@@ -45,7 +50,7 @@ export default function ApiKeyScreen() {
 
       <View>
         <Text className="text-sm font-medium text-gray-700 mb-2">
-          {hasSavedKey ? "Substituir chave salva" : "Sua chave da API"}
+          {hasCustom ? "Substituir chave salva" : "Usar minha própria chave"}
         </Text>
         <TextInput
           value={key}
@@ -66,6 +71,14 @@ export default function ApiKeyScreen() {
       >
         <Text className="text-white text-base font-semibold">Salvar chave</Text>
       </Pressable>
+
+      {hasCustom && (
+        <Pressable onPress={handleUseDefault} className="items-center py-2">
+          <Text className="text-gray-500 font-medium">
+            Voltar a usar a chave padrão do app
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
