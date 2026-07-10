@@ -42,21 +42,41 @@ const ITINERARY_SCHEMA = {
 type RawActivity = { title: string; description: string };
 type RawDay = { manha: RawActivity; tarde: RawActivity; noite: RawActivity };
 
+const REQUEST_TIMEOUT_MS = 25_000;
+
 async function callGemini(prompt: string, schema: object): Promise<string> {
   const apiKey = await getApiKey();
   if (!apiKey) throw new MissingApiKeyError();
 
-  const response = await fetch(`${ENDPOINT}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        response_mime_type: "application/json",
-        response_schema: schema,
-      },
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${ENDPOINT}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          response_mime_type: "application/json",
+          response_schema: schema,
+          // "minimal" pula o raciocínio estendido do modelo — sem isso, o
+          // Gemini gasta dezenas de tokens "pensando" antes de responder,
+          // o que deixava a geração do roteiro lenta ao ponto de parecer travada.
+          thinkingConfig: { thinkingLevel: "minimal" },
+        },
+      }),
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("A IA demorou demais para responder. Tente novamente.");
+    }
+    throw new Error("Não foi possível conectar à IA. Verifique sua internet.");
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const body = await response.text();
