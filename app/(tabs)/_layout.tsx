@@ -19,6 +19,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="guia-local"
+        options={{
+          title: "Guia Local",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="compass" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

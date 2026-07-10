@@ -25,7 +25,13 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O qViagem usa sua localização para sugerir pontos turísticos e históricos perto de você."
+        }
+      ]
     ]
   }
 }

@@ -47,7 +47,7 @@ type RawDay = { manha: RawActivity; tarde: RawActivity; noite: RawActivity };
 // (chave inválida, sem internet) pendurados por tempo demais.
 const REQUEST_TIMEOUT_MS = 45_000;
 
-async function callGemini(prompt: string, schema: object): Promise<string> {
+async function callGemini(prompt: string, schema?: object): Promise<string> {
   const apiKey = await getApiKey();
   if (!apiKey) throw new MissingApiKeyError();
 
@@ -63,8 +63,9 @@ async function callGemini(prompt: string, schema: object): Promise<string> {
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          response_mime_type: "application/json",
-          response_schema: schema,
+          ...(schema
+            ? { response_mime_type: "application/json", response_schema: schema }
+            : {}),
           // "minimal" pula o raciocínio estendido do modelo — sem isso, o
           // Gemini gasta dezenas de tokens "pensando" antes de responder,
           // o que deixava a geração do roteiro lenta ao ponto de parecer travada.
@@ -179,4 +180,34 @@ Não repita nenhuma destas atividades já usadas na viagem: ${params.avoidTitles
   } catch {
     throw new Error("Não consegui entender a resposta da IA. Tente novamente.");
   }
+}
+
+type GenerateNarrativeParams = {
+  title: string;
+  sourceText: string;
+};
+
+const MAX_SOURCE_CHARS = 2500;
+
+export async function generateNarrative(
+  params: GenerateNarrativeParams
+): Promise<string> {
+  const sourceText = params.sourceText.slice(0, MAX_SOURCE_CHARS);
+  const prompt = `
+Transforme esse texto histórico sobre "${params.title}" em uma narrativa curta, curiosa e envolvente para um turista que está visitando o local agora.
+
+Texto original (Wikipedia):
+"""
+${sourceText}
+"""
+
+Regras:
+- Tom leve e curioso, como um guia turístico local contando uma curiosidade.
+- Português do Brasil.
+- Entre 80 e 150 palavras.
+- Não invente fatos que não estejam no texto original.
+- Responda só com a narrativa, sem título nem introdução do tipo "aqui está".
+`.trim();
+
+  return callGemini(prompt);
 }
