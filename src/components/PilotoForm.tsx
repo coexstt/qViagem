@@ -64,7 +64,7 @@ export default function PilotoForm({
           Gerando roteiro incrível para {destination}...
         </Text>
         <Text className="text-sm text-gray-500 mt-1 text-center">
-          Isso pode levar alguns segundos.
+          Isso pode levar até 30 segundos, principalmente em viagens mais longas.
         </Text>
       </View>
     );

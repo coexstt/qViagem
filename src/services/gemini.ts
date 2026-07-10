@@ -42,7 +42,10 @@ const ITINERARY_SCHEMA = {
 type RawActivity = { title: string; description: string };
 type RawDay = { manha: RawActivity; tarde: RawActivity; noite: RawActivity };
 
-const REQUEST_TIMEOUT_MS = 25_000;
+// Medido empiricamente: um roteiro de 14 dias com descrições curtas leva ~17s.
+// 45s dá folga para trips maiores e redes mais lentas sem deixar erros reais
+// (chave inválida, sem internet) pendurados por tempo demais.
+const REQUEST_TIMEOUT_MS = 45_000;
 
 async function callGemini(prompt: string, schema: object): Promise<string> {
   const apiKey = await getApiKey();
@@ -111,7 +114,7 @@ Regras:
 - Considere deslocamento e proximidade geográfica entre as atividades de um mesmo dia, evitando trajetos ilógicos.
 - Varie os tipos de atividade ao longo dos dias (não repita o mesmo tipo de atração todo dia).
 - Respeite o orçamento e o estilo escolhidos nas sugestões (ex: luxo sugere experiências mais exclusivas; econômico prioriza opções gratuitas ou de baixo custo).
-- "title" deve ser curto (até 8 palavras). "description" deve ter 1-2 frases práticas (o que fazer, dica útil).
+- "title" deve ser curto (até 6 palavras). "description" deve ser objetiva, até 12 palavras (uma dica prática, sem enrolação).
 - Responda em português do Brasil.
 - Retorne exatamente ${params.days} itens no array "days", na ordem cronológica.
 `.trim();
@@ -167,7 +170,7 @@ Preferências do viajante:
 
 Não repita nenhuma destas atividades já usadas na viagem: ${params.avoidTitles.join(", ") || "nenhuma"}.
 
-"title" deve ser curto (até 8 palavras). "description" deve ter 1-2 frases práticas. Responda em português do Brasil.
+"title" deve ser curto (até 6 palavras). "description" deve ser objetiva, até 12 palavras. Responda em português do Brasil.
 `.trim();
 
   const text = await callGemini(prompt, ACTIVITY_SCHEMA);
