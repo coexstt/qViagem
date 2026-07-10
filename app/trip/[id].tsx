@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, ScrollView, Text } from "react-native";
+import { Alert, Pressable, ScrollView, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -15,12 +15,27 @@ import {
   updateItemContent,
   updateTripPreferences,
 } from "../../src/db/database";
-import { generateAlternative, generateItinerary } from "../../src/services/gemini";
+import {
+  generateAlternative,
+  generateItinerary,
+  generateRainAlternatives,
+} from "../../src/services/gemini";
 import { getApiKey } from "../../src/services/apiKey";
-import { formatDayLabel, tripDurationDays } from "../../src/utils/date";
+import { getCurrentCoords } from "../../src/services/location";
+import { reverseGeocode } from "../../src/services/geocoding";
+import {
+  currentPeriodNow,
+  currentTripDayIndex,
+  formatDayLabel,
+  tripDurationDays,
+} from "../../src/utils/date";
+import { formatItineraryForSharing } from "../../src/utils/share";
 import PilotoForm from "../../src/components/PilotoForm";
 import DayBlock from "../../src/components/DayBlock";
 import AddActivityModal from "../../src/components/AddActivityModal";
+import RainAlternativesModal, {
+  RainSuggestion,
+} from "../../src/components/RainAlternativesModal";
 
 export default function TripAgendaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,6 +46,11 @@ export default function TripAgendaScreen() {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [swappingItemId, setSwappingItemId] = useState<number | null>(null);
   const [addActivityDayIndex, setAddActivityDayIndex] = useState<number | null>(null);
+  const [rainModalVisible, setRainModalVisible] = useState(false);
+  const [rainLoading, setRainLoading] = useState(false);
+  const [rainError, setRainError] = useState<string | null>(null);
+  const [rainSuggestions, setRainSuggestions] = useState<RainSuggestion[]>([]);
+  const [rainAddedTitles, setRainAddedTitles] = useState<string[]>([]);
 
   const refresh = useCallback(() => {
     setTrip(getTripById(tripId));
@@ -117,18 +137,73 @@ export default function TripAgendaScreen() {
     refresh();
   }
 
+  async function handleOpenRainModal() {
+    setRainModalVisible(true);
+    setRainLoading(true);
+    setRainError(null);
+    setRainSuggestions([]);
+    setRainAddedTitles([]);
+
+    try {
+      const coords = await getCurrentCoords();
+      const locationContext = coords
+        ? (await reverseGeocode(coords.latitude, coords.longitude)) ??
+          currentTrip.destination
+        : currentTrip.destination;
+
+      const suggestions = await generateRainAlternatives({
+        locationContext,
+        budget: currentTrip.budget ?? "Médio",
+        style: currentTrip.style ?? "Cultural",
+      });
+      setRainSuggestions(suggestions);
+    } catch (e) {
+      setRainError(
+        e instanceof Error ? e.message : "Não foi possível buscar alternativas."
+      );
+    } finally {
+      setRainLoading(false);
+    }
+  }
+
+  function handleAddRainSuggestion(suggestion: RainSuggestion) {
+    const dayIndex = currentTripDayIndex(currentTrip.startDate, currentTrip.endDate);
+    const period = currentPeriodNow();
+    insertGeneratedItems(currentTrip.id, [
+      { dayIndex, period, title: suggestion.title, description: suggestion.description },
+    ]);
+    setRainAddedTitles((prev) => [...prev, suggestion.title]);
+    refresh();
+  }
+
+  async function handleShare() {
+    const text = formatItineraryForSharing(currentTrip, items);
+    try {
+      await Share.share({ message: text });
+    } catch {
+      Alert.alert("Não foi possível compartilhar", "Tente novamente.");
+    }
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["bottom"]}>
       <Stack.Screen
         options={{
           title: trip.destination,
           headerRight: () => (
-            <Text
-              onPress={() => router.push("/api-key")}
-              className="text-primary text-lg"
-            >
-              ⚙️
-            </Text>
+            <View className="flex-row items-center gap-4">
+              {items.length > 0 && (
+                <Text onPress={handleShare} className="text-primary text-lg">
+                  📤
+                </Text>
+              )}
+              <Text
+                onPress={() => router.push("/api-key")}
+                className="text-primary text-lg"
+              >
+                ⚙️
+              </Text>
+            </View>
           ),
         }}
       />
@@ -152,10 +227,31 @@ export default function TripAgendaScreen() {
         </ScrollView>
       )}
 
+      {items.length > 0 && (
+        <Pressable
+          onPress={handleOpenRainModal}
+          className="absolute bottom-6 right-6 bg-gray-900 rounded-full px-4 py-3 active:opacity-80"
+        >
+          <Text className="text-white text-sm font-semibold">
+            🌧️ Mudar Planos (Choveu!)
+          </Text>
+        </Pressable>
+      )}
+
       <AddActivityModal
         visible={addActivityDayIndex !== null}
         onClose={() => setAddActivityDayIndex(null)}
         onSubmit={handleAddActivitySubmit}
+      />
+
+      <RainAlternativesModal
+        visible={rainModalVisible}
+        isLoading={rainLoading}
+        errorMessage={rainError}
+        suggestions={rainSuggestions}
+        addedTitles={rainAddedTitles}
+        onAdd={handleAddRainSuggestion}
+        onClose={() => setRainModalVisible(false)}
       />
     </SafeAreaView>
   );

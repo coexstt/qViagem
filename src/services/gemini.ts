@@ -182,6 +182,47 @@ Não repita nenhuma destas atividades já usadas na viagem: ${params.avoidTitles
   }
 }
 
+const RAIN_ALTERNATIVES_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    suggestions: {
+      type: "ARRAY",
+      items: ACTIVITY_SCHEMA,
+    },
+  },
+  required: ["suggestions"],
+};
+
+type GenerateRainAlternativesParams = {
+  locationContext: string;
+  budget: Budget;
+  style: TravelStyle;
+};
+
+export async function generateRainAlternatives(
+  params: GenerateRainAlternativesParams
+): Promise<RawActivity[]> {
+  const prompt = `
+O plano mudou (por exemplo, começou a chover) durante uma viagem perto de ${params.locationContext}.
+
+Sugira exatamente 3 atividades alternativas para as próximas 3 horas, priorizando locais cobertos (museus, shoppings, cafés, centros culturais) ou restaurantes próximos.
+
+Preferências do viajante:
+- Orçamento: ${params.budget}
+- Estilo da viagem: ${params.style}
+
+"title" deve ser curto (até 6 palavras). "description" deve ser objetiva, até 12 palavras. Responda em português do Brasil.
+`.trim();
+
+  const text = await callGemini(prompt, RAIN_ALTERNATIVES_SCHEMA);
+  try {
+    const parsed = JSON.parse(text) as { suggestions: RawActivity[] };
+    return parsed.suggestions;
+  } catch {
+    throw new Error("Não consegui entender a resposta da IA. Tente novamente.");
+  }
+}
+
 type GenerateNarrativeParams = {
   title: string;
   sourceText: string;

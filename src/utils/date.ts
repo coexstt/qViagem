@@ -41,3 +41,23 @@ export function formatDayLabel(startDate: string, dayIndex: number): string {
   });
   return `Dia ${dayIndex + 1} · ${formatted}`;
 }
+
+// Usado pelo "Mudar Planos (Choveu!)": se hoje está dentro do período da
+// viagem, usa o dia correspondente; caso contrário (testando fora das
+// datas reais, ou viagem já encerrada), cai no primeiro/último dia.
+export function currentTripDayIndex(startDate: string, endDate: string): number {
+  const today = todayISODate();
+  if (today <= startDate) return 0;
+  if (today >= endDate) return tripDurationDays(startDate, endDate) - 1;
+
+  const start = new Date(`${startDate}T00:00:00`);
+  const current = new Date(`${today}T00:00:00`);
+  return Math.round((current.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function currentPeriodNow(): "manha" | "tarde" | "noite" {
+  const hour = new Date().getHours();
+  if (hour < 12) return "manha";
+  if (hour < 18) return "tarde";
+  return "noite";
+}

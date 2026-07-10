@@ -53,3 +53,22 @@ export async function searchPlaces(query: string): Promise<PlaceSuggestion[]> {
     return { id: String(result.place_id), label };
   });
 }
+
+// Usado pelo "Mudar Planos (Choveu!)" para descrever o entorno atual do
+// usuário para a IA, quando o GPS está disponível.
+export async function reverseGeocode(
+  latitude: number,
+  longitude: number
+): Promise<string | null> {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=14&accept-language=pt-BR`;
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "qViagem/1.0 (personal travel itinerary app)",
+    },
+  });
+  if (!response.ok) return null;
+
+  const result: NominatimResult = await response.json();
+  return result.display_name ?? null;
+}
