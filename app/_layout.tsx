@@ -27,6 +27,14 @@ export default function RootLayout() {
             name="trip/[id]"
             options={{ headerShown: true, title: "" }}
           />
+          <Stack.Screen
+            name="api-key"
+            options={{
+              presentation: "modal",
+              headerShown: true,
+              title: "Chave da API",
+            }}
+          />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>
