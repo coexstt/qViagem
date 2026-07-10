@@ -3,6 +3,7 @@
     "name": "qViagem",
     "slug": "qViagem",
     "version": "1.0.0",
+    "scheme": "qviagem",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,6 +21,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "@react-native-community/datetimepicker"
+    ]
   }
 }
