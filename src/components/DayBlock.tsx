@@ -16,6 +16,8 @@ export default function DayBlock({
   onMove,
   onSwap,
   onAddActivity,
+  onDelete,
+  onViewMap,
 }: {
   dayIndex: number;
   dateLabel: string;
@@ -24,6 +26,8 @@ export default function DayBlock({
   onMove: (item: ItineraryItem, direction: "up" | "down") => void;
   onSwap: (item: ItineraryItem) => void;
   onAddActivity: (dayIndex: number) => void;
+  onDelete: (item: ItineraryItem) => void;
+  onViewMap: (item: ItineraryItem) => void;
 }) {
   return (
     <View className="mb-8">
@@ -57,6 +61,8 @@ export default function DayBlock({
                 onMoveUp={() => onMove(item, "up")}
                 onMoveDown={() => onMove(item, "down")}
                 onSwap={() => onSwap(item)}
+                onDelete={() => onDelete(item)}
+                onViewMap={() => onViewMap(item)}
               />
             ))}
           </View>

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -7,6 +7,7 @@ import {
   ItineraryItem,
   Trip,
   TravelStyle,
+  deleteItem,
   getItineraryForTrip,
   getTripById,
   insertGeneratedItems,
@@ -127,6 +128,29 @@ export default function TripAgendaScreen() {
     refresh();
   }
 
+  function handleDelete(item: ItineraryItem) {
+    Alert.alert(
+      "Remover atividade?",
+      `"${item.title}" será removida do roteiro.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Remover",
+          style: "destructive",
+          onPress: () => {
+            deleteItem(item.id);
+            refresh();
+          },
+        },
+      ]
+    );
+  }
+
+  function handleViewMap(item: ItineraryItem) {
+    const query = encodeURIComponent(`${item.title}, ${currentTrip.destination}`);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+  }
+
   function handleAddActivitySubmit(
     period: ItineraryItem["period"],
     title: string,
@@ -222,6 +246,8 @@ export default function TripAgendaScreen() {
               onMove={handleMove}
               onSwap={handleSwap}
               onAddActivity={setAddActivityDayIndex}
+              onDelete={handleDelete}
+              onViewMap={handleViewMap}
             />
           ))}
         </ScrollView>

@@ -233,6 +233,10 @@ export function updateItemContent(
   );
 }
 
+export function deleteItem(id: number): void {
+  db.runSync("DELETE FROM itinerary_items WHERE id = ?", id);
+}
+
 export function moveItem(item: ItineraryItem, direction: "up" | "down"): void {
   const comparator = direction === "up" ? "<" : ">";
   const order = direction === "up" ? "DESC" : "ASC";
