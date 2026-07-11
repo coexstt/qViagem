@@ -12,11 +12,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getCurrentCoords } from "../../src/services/location";
 import {
   WikiPlace,
+  WikiSummary,
   geosearchNearby,
   getSummary,
   searchByName,
 } from "../../src/services/wikipedia";
 import { generateNarrative } from "../../src/services/gemini";
+import { getCachedNarrative, saveNarrative } from "../../src/db/database";
 import StoryCard from "../../src/components/StoryCard";
 import PlaceResultsList from "../../src/components/PlaceResultsList";
 
@@ -25,11 +27,12 @@ type ScreenState =
   | { step: "loading"; message: string }
   | { step: "results"; places: WikiPlace[] }
   | {
-      step: "story";
-      title: string;
-      thumbnailUrl?: string;
-      narrative: string;
-      distanceMeters?: number;
+      step: "place";
+      place: WikiPlace;
+      summary: WikiSummary;
+      displayText: string;
+      isAiGenerated: boolean;
+      isTransforming: boolean;
     }
   | { step: "error"; message: string };
 
@@ -42,8 +45,11 @@ export default function GuiaLocalScreen() {
     setSearchQuery("");
   }
 
-  async function loadStoryFor(place: WikiPlace) {
-    setState({ step: "loading", message: "Preparando a história..." });
+  // A Wikipedia é gratuita e ilimitada, então mostramos o texto bruto dela
+  // na hora. O Gemini só entra em jogo se o usuário pedir explicitamente
+  // (botão "Transformar com IA"), pra economizar a cota gratuita.
+  async function loadPlace(place: WikiPlace) {
+    setState({ step: "loading", message: "Buscando informações na Wikipedia..." });
     try {
       const summary = await getSummary(place.title, place.lang);
       if (!summary.extract) {
@@ -54,23 +60,51 @@ export default function GuiaLocalScreen() {
         });
         return;
       }
+      setState({
+        step: "place",
+        place,
+        summary,
+        displayText: summary.extract,
+        isAiGenerated: false,
+        isTransforming: false,
+      });
+    } catch {
+      setState({
+        step: "error",
+        message: "Não foi possível carregar informações da Wikipedia.",
+      });
+    }
+  }
+
+  async function handleTransformWithAI() {
+    if (state.step !== "place") return;
+    const { place, summary } = state;
+
+    const cached = getCachedNarrative(place.lang, summary.title);
+    if (cached) {
+      setState({ ...state, displayText: cached, isAiGenerated: true });
+      return;
+    }
+
+    setState({ ...state, isTransforming: true });
+    try {
       const narrative = await generateNarrative({
         title: summary.title,
         sourceText: summary.extract,
       });
+      saveNarrative(place.lang, summary.title, narrative);
       setState({
-        step: "story",
-        title: summary.title,
-        thumbnailUrl: summary.thumbnailUrl,
-        narrative,
-        distanceMeters: place.distanceMeters,
+        ...state,
+        displayText: narrative,
+        isAiGenerated: true,
+        isTransforming: false,
       });
     } catch (e) {
-      setState({
-        step: "error",
-        message:
-          e instanceof Error ? e.message : "Não foi possível gerar a história.",
-      });
+      Alert.alert(
+        "Não foi possível gerar a narrativa",
+        e instanceof Error ? e.message : "Tente novamente."
+      );
+      setState({ ...state, isTransforming: false });
     }
   }
 
@@ -98,7 +132,7 @@ export default function GuiaLocalScreen() {
         return;
       }
       if (places.length === 1) {
-        await loadStoryFor(places[0]);
+        await loadPlace(places[0]);
       } else {
         setState({ step: "results", places });
       }
@@ -140,12 +174,15 @@ export default function GuiaLocalScreen() {
           Descubra a história dos lugares ao seu redor.
         </Text>
 
-        {state.step === "story" ? (
+        {state.step === "place" ? (
           <StoryCard
-            title={state.title}
-            thumbnailUrl={state.thumbnailUrl}
-            narrative={state.narrative}
-            distanceMeters={state.distanceMeters}
+            title={state.summary.title}
+            thumbnailUrl={state.summary.thumbnailUrl}
+            distanceMeters={state.place.distanceMeters}
+            text={state.displayText}
+            isAiGenerated={state.isAiGenerated}
+            isTransforming={state.isTransforming}
+            onTransform={handleTransformWithAI}
             onReset={reset}
           />
         ) : (
@@ -187,7 +224,7 @@ export default function GuiaLocalScreen() {
             )}
 
             {state.step === "results" && (
-              <PlaceResultsList places={state.places} onSelect={loadStoryFor} />
+              <PlaceResultsList places={state.places} onSelect={loadPlace} />
             )}
 
             {state.step === "error" && (

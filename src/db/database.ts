@@ -108,6 +108,38 @@ export function initDatabase() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS place_stories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      lang TEXT NOT NULL,
+      title TEXT NOT NULL,
+      narrative TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(lang, title)
+    );
+  `);
+}
+
+// Cache de narrativas do Guia Local: evita chamar o Gemini de novo para um
+// lugar que já foi "transformado" antes, para economizar a cota gratuita.
+export function getCachedNarrative(lang: string, title: string): string | null {
+  const row = db.getFirstSync<{ narrative: string }>(
+    "SELECT narrative FROM place_stories WHERE lang = ? AND title = ?",
+    lang,
+    title
+  );
+  return row?.narrative ?? null;
+}
+
+export function saveNarrative(lang: string, title: string, narrative: string): void {
+  db.runSync(
+    `INSERT INTO place_stories (lang, title, narrative) VALUES (?, ?, ?)
+     ON CONFLICT(lang, title) DO UPDATE SET narrative = excluded.narrative`,
+    lang,
+    title,
+    narrative
+  );
 }
 
 export function getAllTrips(): Trip[] {
