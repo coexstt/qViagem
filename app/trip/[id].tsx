@@ -37,6 +37,9 @@ import AddActivityModal from "../../src/components/AddActivityModal";
 import RainAlternativesModal, {
   RainSuggestion,
 } from "../../src/components/RainAlternativesModal";
+import SectionTabs, { TripSection } from "../../src/components/SectionTabs";
+import PackingChecklist from "../../src/components/PackingChecklist";
+import TripNotes from "../../src/components/TripNotes";
 
 export default function TripAgendaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -52,6 +55,7 @@ export default function TripAgendaScreen() {
   const [rainError, setRainError] = useState<string | null>(null);
   const [rainSuggestions, setRainSuggestions] = useState<RainSuggestion[]>([]);
   const [rainAddedTitles, setRainAddedTitles] = useState<string[]>([]);
+  const [activeSection, setActiveSection] = useState<TripSection>("agenda");
 
   const refresh = useCallback(() => {
     setTrip(getTripById(tripId));
@@ -232,28 +236,48 @@ export default function TripAgendaScreen() {
         }}
       />
 
-      {items.length === 0 ? (
-        <PilotoForm destination={trip.destination} onGenerate={handleGenerate} />
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: 24 }}>
-          {Array.from({ length: totalDays }, (_, dayIndex) => (
-            <DayBlock
-              key={dayIndex}
-              dayIndex={dayIndex}
-              dateLabel={formatDayLabel(trip.startDate, dayIndex)}
-              items={items.filter((item) => item.dayIndex === dayIndex)}
-              swappingItemId={swappingItemId}
-              onMove={handleMove}
-              onSwap={handleSwap}
-              onAddActivity={setAddActivityDayIndex}
-              onDelete={handleDelete}
-              onViewMap={handleViewMap}
-            />
-          ))}
+      <SectionTabs active={activeSection} onChange={setActiveSection} />
+
+      {activeSection === "agenda" &&
+        (items.length === 0 ? (
+          <PilotoForm destination={trip.destination} onGenerate={handleGenerate} />
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: 24 }}>
+            {Array.from({ length: totalDays }, (_, dayIndex) => (
+              <DayBlock
+                key={dayIndex}
+                dayIndex={dayIndex}
+                dateLabel={formatDayLabel(trip.startDate, dayIndex)}
+                items={items.filter((item) => item.dayIndex === dayIndex)}
+                swappingItemId={swappingItemId}
+                onMove={handleMove}
+                onSwap={handleSwap}
+                onAddActivity={setAddActivityDayIndex}
+                onDelete={handleDelete}
+                onViewMap={handleViewMap}
+              />
+            ))}
+          </ScrollView>
+        ))}
+
+      {activeSection === "mala" && (
+        <ScrollView
+          contentContainerStyle={{ padding: 24 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <PackingChecklist
+            tripId={currentTrip.id}
+            destination={currentTrip.destination}
+            style={currentTrip.style}
+          />
         </ScrollView>
       )}
 
-      {items.length > 0 && (
+      {activeSection === "notas" && (
+        <TripNotes tripId={currentTrip.id} initialNotes={currentTrip.notes ?? ""} />
+      )}
+
+      {activeSection === "agenda" && items.length > 0 && (
         <Pressable
           onPress={handleOpenRainModal}
           className="absolute bottom-6 right-6 bg-gray-900 rounded-full px-4 py-3 active:opacity-80"

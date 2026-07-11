@@ -13,6 +13,14 @@ export type Trip = {
   createdAt: string;
   budget: Budget | null;
   style: TravelStyle | null;
+  notes: string | null;
+};
+
+export type PackingItem = {
+  id: number;
+  tripId: number;
+  label: string;
+  checked: boolean;
 };
 
 export type ItineraryItem = {
@@ -34,6 +42,14 @@ type TripRow = {
   created_at: string;
   budget: Budget | null;
   style: TravelStyle | null;
+  notes: string | null;
+};
+
+type PackingItemRow = {
+  id: number;
+  trip_id: number;
+  label: string;
+  checked: number;
 };
 
 type ItineraryItemRow = {
@@ -58,6 +74,7 @@ function toTrip(row: TripRow): Trip {
     createdAt: row.created_at,
     budget: row.budget,
     style: row.style,
+    notes: row.notes,
   };
 }
 
@@ -71,6 +88,15 @@ function toItineraryItem(row: ItineraryItemRow): ItineraryItem {
     title: row.title,
     description: row.description,
     source: row.source,
+  };
+}
+
+function toPackingItem(row: PackingItemRow): PackingItem {
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    label: row.label,
+    checked: row.checked === 1,
   };
 }
 
@@ -94,6 +120,7 @@ export function initDatabase() {
   `);
   addColumnIfMissing("trips", "budget", "TEXT");
   addColumnIfMissing("trips", "style", "TEXT");
+  addColumnIfMissing("trips", "notes", "TEXT");
 
   db.execSync(`
     CREATE TABLE IF NOT EXISTS itinerary_items (
@@ -119,6 +146,50 @@ export function initDatabase() {
       UNIQUE(lang, title)
     );
   `);
+
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS packing_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      checked INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+}
+
+export function updateTripNotes(tripId: number, notes: string): void {
+  db.runSync("UPDATE trips SET notes = ? WHERE id = ?", notes, tripId);
+}
+
+export function getPackingItems(tripId: number): PackingItem[] {
+  const rows = db.getAllSync<PackingItemRow>(
+    "SELECT * FROM packing_items WHERE trip_id = ? ORDER BY id ASC",
+    tripId
+  );
+  return rows.map(toPackingItem);
+}
+
+export function insertPackingItems(tripId: number, labels: string[]): void {
+  for (const label of labels) {
+    db.runSync(
+      "INSERT INTO packing_items (trip_id, label, checked) VALUES (?, ?, 0)",
+      tripId,
+      label
+    );
+  }
+}
+
+export function togglePackingItem(id: number, checked: boolean): void {
+  db.runSync(
+    "UPDATE packing_items SET checked = ? WHERE id = ?",
+    checked ? 1 : 0,
+    id
+  );
+}
+
+export function deletePackingItem(id: number): void {
+  db.runSync("DELETE FROM packing_items WHERE id = ?", id);
 }
 
 // Cache de narrativas do Guia Local: evita chamar o Gemini de novo para um
